@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+# 실수로 API 키가 커밋되는 것을 막는 pre-commit 훅.
+#
+# 설치:  git config core.hooksPath .githooks
+#
+# 1) .env 계열 파일이 스테이징되면 차단 (.env.example 은 허용)
+# 2) 코드 안에 네이버 키처럼 보이는 문자열이 하드코딩되면 차단
+#
+
+set -e
+
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+fail=0
+
+# ── 1. .env 파일 차단 ──────────────────────────────
+for file in $staged; do
+  case "$file" in
+    .env.example) continue ;;
+    .env|.env.*|*/.env|*/.env.*)
+      printf "${RED}✖ 커밋 차단:${NC} %s\n" "$file"
+      printf "  환경변수 파일은 커밋할 수 없습니다. 다음 명령으로 스테이징에서 빼주세요:\n"
+      printf "    ${YELLOW}git reset HEAD %s${NC}\n\n" "$file"
+      fail=1
+      ;;
+  esac
+done
+
+# ── 2. 하드코딩된 키 탐지 ──────────────────────────
+for file in $staged; do
+  case "$file" in
+    .env.example|.githooks/*) continue ;;
+  esac
+  [ -f "$file" ] || continue
+
+  # NAVER_CLIENT_ID / SECRET 에 실제 값이 붙어있는 경우
+  if git show ":$file" 2>/dev/null | grep -nE 'NAVER_CLIENT_(ID|SECRET)[[:space:]]*[:=][[:space:]]*['"'"'"]?[A-Za-z0-9_-]{8,}' >/dev/null 2>&1; then
+    printf "${RED}✖ 커밋 차단:${NC} %s 에 API 키가 하드코딩된 것 같습니다.\n" "$file"
+    git show ":$file" | grep -nE 'NAVER_CLIENT_(ID|SECRET)[[:space:]]*[:=][[:space:]]*['"'"'"]?[A-Za-z0-9_-]{8,}' | head -5 | sed 's/^/    /'
+    printf "  키는 코드가 아니라 ${YELLOW}.env.local${NC} 에 넣고 process.env 로 읽어주세요.\n\n"
+    fail=1
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  printf "${RED}커밋이 취소되었습니다.${NC} 위 항목을 정리한 뒤 다시 시도해주세요.\n"
+  printf "(정말 의도한 커밋이라면 --no-verify 로 우회할 수 있지만 권장하지 않습니다)\n"
+  exit 1
+fi
+
+exit 0
