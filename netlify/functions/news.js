@@ -6,8 +6,8 @@ exports.handler = async (event) => {
   const params = event.queryStringParameters || {};
 
   const { status, body } = await getNews(params, {
-    CLIENT_ID: process.env.NAVER_CLIENT_ID,
-    CLIENT_SECRET: process.env.NAVER_CLIENT_SECRET,
+    CLIENT_ID: process.env['NCP-APIGW-API-KEY-ID'],
+    CLIENT_SECRET: process.env['NCP-APIGW-API-KEY'],
     USE_MOCK: process.env.MOCK === '1',
   });
 

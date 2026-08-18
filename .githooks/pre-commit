@@ -37,10 +37,11 @@ for file in $staged; do
   esac
   [ -f "$file" ] || continue
 
-  # NAVER_CLIENT_ID / SECRET 에 실제 값이 붙어있는 경우
-  if git show ":$file" 2>/dev/null | grep -nE 'NAVER_CLIENT_(ID|SECRET)[[:space:]]*[:=][[:space:]]*['"'"'"]?[A-Za-z0-9_-]{8,}' >/dev/null 2>&1; then
+  # NAVER_CLIENT_ID/SECRET 또는 NCP-APIGW-API-KEY(-ID) 에 실제 값이 붙어있는 경우
+  PATTERN='(NAVER_CLIENT_(ID|SECRET)|NCP-APIGW-API-KEY(-ID)?)[[:space:]]*[:=][[:space:]]*['"'"'"]?[A-Za-z0-9_-]{8,}'
+  if git show ":$file" 2>/dev/null | grep -nE "$PATTERN" >/dev/null 2>&1; then
     printf "${RED}✖ 커밋 차단:${NC} %s 에 API 키가 하드코딩된 것 같습니다.\n" "$file"
-    git show ":$file" | grep -nE 'NAVER_CLIENT_(ID|SECRET)[[:space:]]*[:=][[:space:]]*['"'"'"]?[A-Za-z0-9_-]{8,}' | head -5 | sed 's/^/    /'
+    git show ":$file" | grep -nE "$PATTERN" | head -5 | sed 's/^/    /'
     printf "  키는 코드가 아니라 ${YELLOW}.env.local${NC} 에 넣고 process.env 로 읽어주세요.\n\n"
     fail=1
   fi
