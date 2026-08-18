@@ -25,8 +25,11 @@ NAVER_CLIENT_SECRET=발급받은_Client_Secret
 PORT=3000
 ```
 
-> 키는 [네이버 개발자센터 > 내 애플리케이션](https://developers.naver.com/apps)에서 확인할 수 있습니다.
-> 애플리케이션의 **사용 API**에 `검색`이 추가되어 있어야 합니다.
+> 2026년 이후 뉴스 검색 API 신규 발급은 개발자센터가 아니라 **NAVER API HUB**
+> (네이버 클라우드 플랫폼 산하, [ncloud.com](https://www.ncloud.com/product/applicationService/naverApiHub))
+> 콘솔에서 이뤄집니다. 발급받은 Client ID / Secret을 그대로 `NAVER_CLIENT_ID` /
+> `NAVER_CLIENT_SECRET`에 넣으면 됩니다 (서버가 내부적으로 API HUB 엔드포인트와
+> `X-NCP-APIGW-API-KEY-ID` / `X-NCP-APIGW-API-KEY` 헤더로 변환해서 호출합니다).
 
 `.env.local` 은 `.gitignore` 에서 차단되어 있어 커밋되지 않습니다. (자세한 내용은 아래 [키 보호](#키-보호) 참고)
 
@@ -102,7 +105,13 @@ API 키가 깃허브에 올라가지 않도록 **3중으로 막아뒀습니다.*
 
 ```
 .
-├── server.js              # Express 서버 + 네이버 API 프록시
+├── server.js              # Express 서버 (로컬 실행용) — lib/news.js 를 호출
+├── lib/
+│   └── news.js            # 뉴스 검색 핵심 로직 (서버/Netlify Function 공용)
+├── netlify/
+│   └── functions/
+│       └── news.js        # Netlify Function — 배포 시 lib/news.js 를 호출
+├── netlify.toml            # Netlify 빌드/배포 설정
 ├── public/
 │   └── index.html         # 프론트엔드 (HTML + CSS + JS 단일 파일)
 ├── .githooks/
@@ -166,3 +175,19 @@ API 키가 깃허브에 올라가지 않도록 **3중으로 막아뒀습니다.*
   `NAVER_CLIENT_SECRET`을 넣어주세요.
 - 공개 사이트로 운영한다면 `/api/news`에 rate limit(예: `express-rate-limit`)을 붙이는 것을
   권장합니다. 그렇지 않으면 다른 사람이 이 엔드포인트로 일일 한도를 소진시킬 수 있습니다.
+
+### Netlify 배포
+
+Netlify는 `server.js`처럼 계속 떠 있는 Express 서버를 실행할 수 없습니다(정적 파일 +
+서버리스 Function만 지원). 그래서 `/api/news` 로직을 `netlify/functions/news.js`
+Function으로 옮겨뒀고, `netlify.toml`이 `/api/*` 요청을 그 Function으로 연결합니다.
+
+1. Netlify에서 이 GitHub 저장소를 Import
+2. 빌드 설정은 `netlify.toml`에 이미 정의되어 있어 그대로 두면 됩니다
+   (Publish directory: `public`, Functions directory: `netlify/functions`)
+3. Site settings → **Environment variables**에 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` 등록
+   (`.env.local` 파일은 배포되지 않으므로 반드시 Netlify 대시보드에 직접 넣어야 합니다)
+4. Deploy 실행 → `https://<사이트이름>.netlify.app` 접속
+
+로컬에서 Netlify 환경까지 그대로 재현해보고 싶다면 `npx netlify-cli dev`를 사용할 수
+있습니다 (Netlify CLI 설치 필요, `server.js`의 `npm start`와는 별도 실행 방식입니다).

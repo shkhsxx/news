@@ -9,143 +9,23 @@ require('dotenv').config({ path: path.join(__dirname, '.env.local'), quiet: true
 require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 
 const express = require('express');
+const { getNews } = require('./lib/news');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-// 2026년 이후 신규 발급 키는 개발자센터(openapi.naver.com)가 아닌
-// NAVER API HUB(NCP) 경유로 바뀌었다. 엔드포인트/헤더 이름만 다르고
-// 응답 필드(title/description/link/originallink/pubDate)는 동일하다.
-const NAVER_API_URL = 'https://naverapihub.apigw.ntruss.com/search/v1/news';
 const CLIENT_ID = process.env.NAVER_CLIENT_ID;
 const CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET;
 
 // 키 없이 UI를 확인해보고 싶을 때 MOCK=1 로 실행하면 샘플 데이터가 내려옵니다.
 const USE_MOCK = process.env.MOCK === '1';
 
-// 네이버 검색 API 제약
-const DISPLAY_MIN = 10;
-const DISPLAY_MAX = 100;
-const START_MAX = 1000; // start 파라미터 최대값
-
-/** 숫자 파라미터를 안전하게 정수로 변환하고 범위를 제한 */
-function clampInt(value, fallback, min, max) {
-  const n = Number.parseInt(value, 10);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(Math.max(n, min), max);
-}
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/news', async (req, res) => {
-  const query = typeof req.query.query === 'string' ? req.query.query.trim() : '';
-  if (!query) {
-    return res.status(400).json({ error: '검색어(query)를 입력해주세요.' });
-  }
-
-  const display = clampInt(req.query.display, 10, DISPLAY_MIN, DISPLAY_MAX);
-  const sort = req.query.sort === 'date' ? 'date' : 'sim';
-
-  // 프론트에서는 page 로 요청하고, 서버가 네이버의 start 로 변환합니다.
-  const maxPage = Math.floor((START_MAX - 1) / display) + 1;
-  const page = clampInt(req.query.page, 1, 1, maxPage);
-  const start = (page - 1) * display + 1;
-
-  if (USE_MOCK) {
-    return res.json(buildMockResponse({ query, display, sort, page, start, maxPage }));
-  }
-
-  if (!CLIENT_ID || !CLIENT_SECRET) {
-    return res.status(500).json({
-      error:
-        'API 키가 설정되지 않았습니다. .env.local 파일에 NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 을 넣어주세요.',
-    });
-  }
-
-  const url = `${NAVER_API_URL}?query=${encodeURIComponent(query)}&display=${display}&start=${start}&sort=${sort}`;
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
-
-    const response = await fetch(url, {
-      headers: {
-        'X-NCP-APIGW-API-KEY-ID': CLIENT_ID,
-        'X-NCP-APIGW-API-KEY': CLIENT_SECRET,
-      },
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-
-    const body = await response.text();
-
-    if (!response.ok) {
-      let message = `네이버 API 오류 (HTTP ${response.status})`;
-      try {
-        const parsed = JSON.parse(body);
-        if (parsed.errorMessage) message = `${message}: ${parsed.errorMessage}`;
-      } catch {
-        /* 본문이 JSON이 아니면 기본 메시지 사용 */
-      }
-      if (response.status === 401) {
-        message = 'API 키가 올바르지 않습니다. Client ID / Secret 을 다시 확인해주세요.';
-      }
-      if (response.status === 429) {
-        message = '일일 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요.';
-      }
-      console.error('[naver-api]', response.status, body.slice(0, 300));
-      return res.status(response.status === 401 ? 500 : 502).json({ error: message });
-    }
-
-    const data = JSON.parse(body);
-
-    res.json({
-      query,
-      sort,
-      page,
-      display,
-      maxPage,
-      total: data.total ?? 0,
-      items: (data.items ?? []).map(normalizeItem),
-    });
-  } catch (err) {
-    const aborted = err.name === 'AbortError';
-    console.error('[naver-api] request failed:', err.message);
-    res.status(aborted ? 504 : 500).json({
-      error: aborted
-        ? '네이버 API 응답이 지연되고 있습니다. 다시 시도해주세요.'
-        : '뉴스를 불러오는 중 오류가 발생했습니다.',
-    });
-  }
+  const { status, body } = await getNews(req.query, { CLIENT_ID, CLIENT_SECRET, USE_MOCK });
+  res.status(status).json(body);
 });
-
-/** 응답 아이템에서 프론트가 쓰는 필드만 남김 */
-function normalizeItem(item) {
-  return {
-    title: item.title ?? '',
-    description: item.description ?? '',
-    link: item.link ?? '',
-    originallink: item.originallink ?? '',
-    pubDate: item.pubDate ?? '',
-  };
-}
-
-function buildMockResponse({ query, display, sort, page, maxPage }) {
-  const total = 1234;
-  const items = Array.from({ length: display }, (_, i) => {
-    const n = (page - 1) * display + i + 1;
-    const date = new Date(Date.UTC(2026, 7, 18, 3, 0, 0) - n * 3600 * 1000);
-    return {
-      title: `<b>${query}</b> 관련 소식 ${n}번째 기사 제목입니다`,
-      description: `이것은 <b>${query}</b> 검색 결과의 ${n}번째 샘플 요약문입니다. 실제 API 키를 넣으면 네이버 뉴스의 실제 기사 내용이 이 자리에 표시됩니다.`,
-      link: 'https://n.news.naver.com/mnews/article/000/0000000000',
-      originallink: 'https://example.com/news/article',
-      pubDate: date.toUTCString(),
-    };
-  });
-  return { query, sort, page, display, maxPage, total, items, mock: true };
-}
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 
