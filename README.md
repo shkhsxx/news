@@ -20,15 +20,17 @@ cp .env.example .env.local
 ```
 
 ```env
-NCP-APIGW-API-KEY-ID=발급받은_Key_ID
-NCP-APIGW-API-KEY=발급받은_Key
+NCP_APIGW_API_KEY_ID=발급받은_Key_ID
+NCP_APIGW_API_KEY=발급받은_Key
 PORT=3000
 ```
 
 > 2026년 이후 뉴스 검색 API 신규 발급은 개발자센터가 아니라 **NAVER API HUB**
 > (네이버 클라우드 플랫폼 산하, [console.ncloud.com](https://console.ncloud.com/))
-> 콘솔에서 이뤄집니다. 발급받은 키를 그대로 `NCP-APIGW-API-KEY-ID` / `NCP-APIGW-API-KEY`에
-> 넣으면 됩니다 — 이 이름은 네이버 API HUB가 실제로 요구하는 요청 헤더 이름과 동일합니다.
+> 콘솔에서 이뤄집니다. 발급받은 키를 `NCP_APIGW_API_KEY_ID` / `NCP_APIGW_API_KEY`에 넣으면
+> 됩니다 (환경변수 이름에는 하이픈을 쓸 수 없는 배포 환경이 많아 언더스코어로 씁니다.
+> 실제 API 호출 시 서버가 `X-NCP-APIGW-API-KEY-ID` / `X-NCP-APIGW-API-KEY` 요청
+> 헤더로 변환해서 보냅니다).
 
 `.env.local` 은 `.gitignore` 에서 차단되어 있어 커밋되지 않습니다. (자세한 내용은 아래 [키 보호](#키-보호) 참고)
 
@@ -92,7 +94,7 @@ API 키가 깃허브에 올라가지 않도록 **3중으로 막아뒀습니다.*
 막을 수 없어서, `.githooks/pre-commit` 이 두 번째 방어선을 맡습니다.
 
 - `.env` 계열 파일이 스테이징되면 커밋 중단 (강제 추가한 경우까지 차단)
-- 코드에 `NCP-APIGW-API-KEY-ID` / `NCP-APIGW-API-KEY` 값이 하드코딩되면 커밋 중단
+- 코드에 `NCP_APIGW_API_KEY_ID` / `NCP_APIGW_API_KEY` 값이 하드코딩되면 커밋 중단
 - 차단 시 해결 방법까지 함께 안내
 
 활성화: `git config core.hooksPath .githooks`
@@ -170,8 +172,8 @@ API 키가 깃허브에 올라가지 않도록 **3중으로 막아뒀습니다.*
 
 ## 배포할 때
 
-- 호스팅 환경에서는 `.env.local` 대신 그 플랫폼의 환경변수 설정에 `NCP-APIGW-API-KEY-ID` /
-  `NCP-APIGW-API-KEY`를 넣어주세요.
+- 호스팅 환경에서는 `.env.local` 대신 그 플랫폼의 환경변수 설정에 `NCP_APIGW_API_KEY_ID` /
+  `NCP_APIGW_API_KEY`를 넣어주세요.
 - 공개 사이트로 운영한다면 `/api/news`에 rate limit(예: `express-rate-limit`)을 붙이는 것을
   권장합니다. 그렇지 않으면 다른 사람이 이 엔드포인트로 일일 한도를 소진시킬 수 있습니다.
 
@@ -184,7 +186,7 @@ Function으로 옮겨뒀고, `netlify.toml`이 `/api/*` 요청을 그 Function�
 1. Netlify에서 이 GitHub 저장소를 Import
 2. 빌드 설정은 `netlify.toml`에 이미 정의되어 있어 그대로 두면 됩니다
    (Publish directory: `public`, Functions directory: `netlify/functions`)
-3. Site settings → **Environment variables**에 `NCP-APIGW-API-KEY-ID`, `NCP-APIGW-API-KEY` 등록
+3. Site settings → **Environment variables**에 `NCP_APIGW_API_KEY_ID`, `NCP_APIGW_API_KEY` 등록
    (`.env.local` 파일은 배포되지 않으므로 반드시 Netlify 대시보드에 직접 넣어야 합니다)
 4. Deploy 실행 → `https://<사이트이름>.netlify.app` 접속
 

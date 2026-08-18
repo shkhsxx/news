@@ -6,8 +6,8 @@ exports.handler = async (event) => {
   const params = event.queryStringParameters || {};
 
   const { status, body } = await getNews(params, {
-    CLIENT_ID: process.env['NCP-APIGW-API-KEY-ID'],
-    CLIENT_SECRET: process.env['NCP-APIGW-API-KEY'],
+    CLIENT_ID: process.env.NCP_APIGW_API_KEY_ID,
+    CLIENT_SECRET: process.env.NCP_APIGW_API_KEY,
     USE_MOCK: process.env.MOCK === '1',
   });
 

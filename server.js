@@ -14,8 +14,8 @@ const { getNews } = require('./lib/news');
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-const CLIENT_ID = process.env['NCP-APIGW-API-KEY-ID'];
-const CLIENT_SECRET = process.env['NCP-APIGW-API-KEY'];
+const CLIENT_ID = process.env.NCP_APIGW_API_KEY_ID;
+const CLIENT_SECRET = process.env.NCP_APIGW_API_KEY;
 
 // 키 없이 UI를 확인해보고 싶을 때 MOCK=1 로 실행하면 샘플 데이터가 내려옵니다.
 const USE_MOCK = process.env.MOCK === '1';
@@ -34,7 +34,7 @@ app.listen(PORT, () => {
   if (USE_MOCK) {
     console.log('  [MOCK 모드] 샘플 데이터를 사용합니다. 실제 검색은 .env.local 설정 후 MOCK 없이 실행하세요.');
   } else if (!CLIENT_ID || !CLIENT_SECRET) {
-    console.log('  ⚠  .env.local 에 NCP-APIGW-API-KEY-ID / NCP-APIGW-API-KEY 가 없습니다.');
+    console.log('  ⚠  .env.local 에 NCP_APIGW_API_KEY_ID / NCP_APIGW_API_KEY 가 없습니다.');
     console.log('     cp .env.example .env.local  후 키를 입력해주세요.');
   }
   console.log('');

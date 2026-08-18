@@ -37,8 +37,8 @@ for file in $staged; do
   esac
   [ -f "$file" ] || continue
 
-  # NAVER_CLIENT_ID/SECRET 또는 NCP-APIGW-API-KEY(-ID) 에 실제 값이 붙어있는 경우
-  PATTERN='(NAVER_CLIENT_(ID|SECRET)|NCP-APIGW-API-KEY(-ID)?)[[:space:]]*[:=][[:space:]]*['"'"'"]?[A-Za-z0-9_-]{8,}'
+  # NAVER_CLIENT_ID/SECRET 또는 NCP_APIGW_API_KEY(_ID) 에 실제 값이 붙어있는 경우
+  PATTERN='(NAVER_CLIENT_(ID|SECRET)|NCP[_-]APIGW[_-]API[_-]KEY([_-]ID)?)[[:space:]]*[:=][[:space:]]*['"'"'"]?[A-Za-z0-9_-]{8,}'
   if git show ":$file" 2>/dev/null | grep -nE "$PATTERN" >/dev/null 2>&1; then
     printf "${RED}✖ 커밋 차단:${NC} %s 에 API 키가 하드코딩된 것 같습니다.\n" "$file"
     git show ":$file" | grep -nE "$PATTERN" | head -5 | sed 's/^/    /'
